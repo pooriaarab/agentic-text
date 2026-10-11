@@ -120,7 +120,19 @@ describe("runCli", () => {
   test("send previews by default and spends nothing", async () => {
     const io = warmIo();
     const code = await runCli(
-      ["send", "--to", TO, "--from", FROM, "--text", "hi"],
+      [
+        "send",
+        "--to",
+        TO,
+        "--from",
+        FROM,
+        "--text",
+        "hi",
+        "--quiet-start",
+        "0",
+        "--quiet-end",
+        "0",
+      ],
       io,
     );
     expect(code).toBe(0);

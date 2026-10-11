@@ -1,6 +1,6 @@
 {
   "name": "agentic-text",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Send texts to opted-in contacts over Twilio, Telnyx, or Plivo.",
   "keywords": [
     "sms",

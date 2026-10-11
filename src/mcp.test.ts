@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, test } from "vitest";
+import { createGuards, type Guards } from "agentic-core";
+import { QUIET_DEFAULT } from "./compliance.js";
 import { createMcpServer } from "./mcp.js";
 import { WarmBase } from "./warmbase.js";
 
@@ -15,7 +17,7 @@ function textOf(result: unknown): string {
   return content[0].text;
 }
 
-async function linked(path: string): Promise<{
+async function linked(path: string, guards?: Guards): Promise<{
   client: Client;
   close: () => Promise<void>;
 }> {
@@ -24,7 +26,7 @@ async function linked(path: string): Promise<{
   base.save(path);
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
-  const server = createMcpServer({ warmbasePath: path });
+  const server = createMcpServer({ warmbasePath: path, guards });
   await server.connect(serverTransport);
   const client = new Client({ name: "probe", version: "0.0.0" });
   await client.connect(clientTransport);
@@ -76,8 +78,12 @@ describe("mcp server", () => {
 
   test("send_text previews by default", async () => {
     const dir = mkdtempSync(join(tmpdir(), "mcp-"));
+    const guards = createGuards({
+      quietHours: { ...QUIET_DEFAULT },
+      now: () => new Date("2026-10-10T15:00:00Z"),
+    });
     try {
-      const { client, close } = await linked(join(dir, "warmbase.json"));
+      const { client, close } = await linked(join(dir, "warmbase.json"), guards);
       try {
         const preview = await client.callTool({
           name: "send_text",
