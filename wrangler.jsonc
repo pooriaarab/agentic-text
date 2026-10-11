@@ -1,0 +1,10 @@
+{
+  // Sample worker config. Run wrangler deploy from the pack root.
+  // The worker serves /health and POST /preview. It never sends.
+  "name": "agentic-text",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-01-01",
+  "vars": {
+    "PACK_NAME": "agentic-text"
+  }
+}

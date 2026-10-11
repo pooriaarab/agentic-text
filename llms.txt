@@ -1,0 +1,15 @@
+# agentic-text
+
+Send texts to opted-in contacts over Twilio, Telnyx, or Plivo.
+
+Keywords: sms, twilio, 10dlc, agentic-suite, claude-code, codex, cli, mcp.
+
+- SDK: import { dispatchText, createSmsAdapter } from "agentic-text".
+- CLI: agentic-text send --to "..." --from "..." --text "...".
+- MCP: run agentic-text mcp, then call send_text.
+
+## Docs
+
+- README: https://github.com/pooriaarab/agentic-text
+- Core contract: https://github.com/pooriaarab/agentic-text/blob/main/docs/agentic-core.md
+- License: MIT
