@@ -1,14 +1,19 @@
 {
   "name": "agentic-text",
   "version": "0.1.1",
-  "description": "Send texts to opted-in contacts over Twilio, Telnyx, or Plivo.",
+  "description": "Send SMS through Twilio, Telnyx, or Plivo with a TypeScript SDK, CLI, and MCP server, plus contact opt-in records and STOP controls.",
   "keywords": [
     "sms",
     "twilio",
+    "telnyx",
+    "plivo",
+    "text-messaging",
+    "opt-in",
+    "stop",
+    "a2p",
     "10dlc",
-    "agentic-suite",
-    "claude-code",
-    "codex",
+    "typescript",
+    "sdk",
     "cli",
     "mcp"
   ],
