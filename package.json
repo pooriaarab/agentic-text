@@ -1,6 +1,6 @@
 {
   "name": "agentic-text",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Send SMS through Twilio, Telnyx, or Plivo with a TypeScript SDK, CLI, and MCP server, plus contact opt-in records and STOP controls.",
   "keywords": [
     "sms",
