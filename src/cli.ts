@@ -25,6 +25,7 @@ import {
   QUIET_DEFAULT,
   withOptOutFooter,
 } from "./compliance.js";
+import { ensureProspect, parseProspectCsv } from "./prospects.js";
 import { DEFAULT_BRAND } from "./index.js";
 import { VERSION } from "./version.js";
 
@@ -63,6 +64,7 @@ export interface CliRequest {
   name?: string;
   source?: string;
   keyword?: string;
+  prospectFile?: string;
 }
 
 const VENDORS: SmsVendor[] = ["twilio", "telnyx", "plivo"];
@@ -129,6 +131,7 @@ export function parseArgs(argv: string[]): CliRequest {
     "--name",
     "--source",
     "--keyword",
+    "--prospect-file",
   ]);
   while (args.length > 0) {
     const flag = args.shift() as string;
@@ -186,6 +189,9 @@ export function parseArgs(argv: string[]): CliRequest {
           break;
         case "--keyword":
           request.keyword = value;
+          break;
+        case "--prospect-file":
+          request.prospectFile = value;
           break;
       }
       continue;
@@ -257,6 +263,8 @@ function helpText(): string {
     "  --dry-run          Preview only. This is the default.",
     "  --brand <b>        Prefix the text with the brand and a STOP footer.",
     "  --warmbase <p>     Warm base file. Default is ~/.agentic-text/.",
+    "  --prospect-file <p>  Prospect CSV with basis, evidence_url,",
+    "                       no_solicitation_flag, do_not_contact columns.",
     "  --cap <n>          Refuse after n dispatches in this run.",
     "  --quiet-start <h>  Quiet window start, UTC hour. Default 1.",
     "  --quiet-end <h>    Quiet window end, UTC hour. Default 13.",
@@ -301,6 +309,12 @@ export async function runCli(
       case "send": {
         const base = io.loadWarmbase(warmbasePath(request));
         ensureWarm(request.to as string, base);
+        if (request.prospectFile !== undefined) {
+          ensureProspect(
+            parseProspectCsv(io.readFile(request.prospectFile)),
+            request.to as string,
+          );
+        }
         const guards = createGuards({
           caps: request.cap === undefined ? {} : { maxDispatches: request.cap },
           quietHours: {
@@ -390,7 +404,9 @@ export async function runCli(
       return 1;
     }
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      io.err(`file not found: ${request.file ?? request.warmbase ?? ""}`);
+      io.err(
+        `file not found: ${request.file ?? request.prospectFile ?? request.warmbase ?? ""}`,
+      );
       return 1;
     }
     if (error instanceof Error && error.message.startsWith("warm base at")) {

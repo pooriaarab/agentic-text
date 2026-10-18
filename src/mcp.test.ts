@@ -117,6 +117,48 @@ describe("mcp server", () => {
     }
   });
 
+  test("send_text enforces prospect compliance columns", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mcp-"));
+    const guards = createGuards({
+      quietHours: { ...QUIET_DEFAULT },
+      now: () => new Date("2026-10-10T15:00:00Z"),
+    });
+    const prospect = {
+      phone: TO,
+      basis: "prior purchase",
+      evidence_url: "https://example.com/consent/1",
+      no_solicitation_flag: false,
+      do_not_contact: false,
+    };
+    try {
+      const { client, close } = await linked(join(dir, "warmbase.json"), guards);
+      try {
+        const preview = await client.callTool({
+          name: "send_text",
+          arguments: { to: TO, text: "hi", prospect },
+        });
+        expect((preview as { isError?: boolean }).isError).not.toBe(true);
+        expect(JSON.parse(textOf(preview))).toMatchObject({ dryRun: true });
+        for (const bad of [
+          { ...prospect, do_not_contact: true },
+          { ...prospect, no_solicitation_flag: true },
+          { ...prospect, phone: "+15550000000" },
+          { ...prospect, basis: "" },
+        ]) {
+          const result = await client.callTool({
+            name: "send_text",
+            arguments: { to: TO, text: "hi", prospect: bad },
+          });
+          expect((result as { isError?: boolean }).isError).toBe(true);
+        }
+      } finally {
+        await close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("record_stop blocks later sends", async () => {
     const dir = mkdtempSync(join(tmpdir(), "mcp-"));
     try {

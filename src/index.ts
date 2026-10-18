@@ -58,6 +58,14 @@ export {
   type WarmBaseFile,
 } from "./warmbase.js";
 export {
+  checkProspectCompliance,
+  ensureProspect,
+  findProspect,
+  parseProspectCsv,
+  prospectFromRow,
+  type ProspectContact,
+} from "./prospects.js";
+export {
   STOP_KEYWORDS,
   HELP_KEYWORDS,
   START_KEYWORDS,
