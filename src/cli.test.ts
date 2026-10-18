@@ -166,6 +166,46 @@ describe("runCli", () => {
     expect(io.errLines.join(" ")).toContain("sent STOP");
   });
 
+  test("send enforces prospect compliance columns", async () => {
+    const csv = (flag: string, contact = TO) =>
+      [
+        "phone,basis,evidence_url,no_solicitation_flag,do_not_contact",
+        `${contact},prior purchase,https://example.com/consent/1,${flag},false`,
+      ].join("\n");
+    const sendWith = (csvText: string) => {
+      const base = new WarmBase();
+      base.add({ to: TO, source: "web form" });
+      const io = testIo({
+        loadWarmbase: () => base,
+        readFile: () => csvText,
+      });
+      return runCli(
+        [
+          "send",
+          "--to",
+          TO,
+          "--from",
+          FROM,
+          "--text",
+          "hi",
+          "--quiet-start",
+          "0",
+          "--quiet-end",
+          "0",
+          "--prospect-file",
+          "prospects.csv",
+        ],
+        io,
+      ).then((code) => ({ code, io }));
+    };
+    expect((await sendWith(csv("false"))).code).toBe(0);
+    for (const bad of [csv("true"), csv("false", "+15550000000")]) {
+      const { code, io } = await sendWith(bad);
+      expect(code).toBe(1);
+      expect(io.errLines.join(" ")).toMatch(/do-not-contact|no-solicitation|no prospect row/);
+    }
+  });
+
   test("send honors quiet hours", async () => {
     const io = warmIo();
     const code = await runCli(

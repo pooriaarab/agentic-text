@@ -50,7 +50,8 @@ CLI vendor selection follows Twilio, Telnyx, then Plivo environment keys; `--ven
 CLI commands: `send`, `warmbase add|list`, `stops add|list`, `a2p`, `costs`, and `mcp`; flags include `--help` and `--version`.
 Use `warmbase add --to <real-opted-in-number> --source <opt-in-source>` before sending.
 `send` requires `--to`, `--from`, and `--text` or `--file`. Preview first; add `--live` for a vendor call.
-Optional send flags include `--vendor`, `--brand`, `--warmbase`, `--cap`, `--quiet-start`, `--quiet-end`, and `--dry-run`.
+Optional send flags include `--vendor`, `--brand`, `--warmbase`, `--cap`, `--quiet-start`, `--quiet-end`, `--dry-run`, and `--prospect-file`.
+`--prospect-file` points at a growth-prospect-list CSV with `phone`, `basis`, `evidence_url`, `no_solicitation_flag`, and `do_not_contact` columns; the row for `--to` must exist and pass all four checks before the send.
 `warmbase add` accepts `--name`; `stops add` accepts `--keyword`.
 The default contact file is `~/.agentic-text/warmbase.json`; override it with `AGENTIC_TEXT_WARMBASE` or CLI `--warmbase`.
 Record each received STOP with `stops add --to <number>`. The number leaves the contact list and remains blocked.
@@ -58,6 +59,7 @@ Record each received STOP with `stops add --to <number>`. The number leaves the 
 Start the Model Context Protocol (MCP) server with `npx agentic-text mcp` or `npx agentic-text-mcp`.
 Its seven tools are `send_text`, `warmbase_add`, `warmbase_list`, `record_stop`, `list_stops`, `a2p_checklist`, and `get_cost_report`.
 `send_text` previews by default; `dryRun: false` requests a live send after contact and guard checks.
+`send_text` accepts an optional `prospect` object with the growth-prospect-list compliance columns; flagged or unevidenced prospects refuse with a tool error.
 The self-hosted Worker source exposes `GET /health` and `POST /preview`; it never sends SMS or reads the contact file.
 
 ## Behavior limits
