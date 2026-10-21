@@ -35,6 +35,7 @@ export type {
   SummarizeOptions,
 } from "agentic-core";
 export {
+  AdapterError,
   TwilioSmsAdapter,
   TelnyxSmsAdapter,
   PlivoSmsAdapter,

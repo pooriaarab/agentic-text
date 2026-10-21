@@ -87,7 +87,7 @@ const ok = await verifyTelnyxSignature({
 const price = telnyxEventPrice(JSON.parse(rawBody));   // cost.amount -> integer cents
 ```
 
-Twilio mirrors it: `statusCallback` on `TwilioSmsAdapter`, `verifyTwilioSignature` (HMAC-SHA1 over URL + sorted params), `twilioCallbackPrice` (`Price`/`PriceUnit` params) and `adapter.charge(sid)` for the final `price` on the Message resource. The transitive `agentic-core` import needs the `nodejs_compat` compatibility flag (OpenNext workers already set it). See `e2e/worker.ts` and `e2e/e2e.ts` for a bundled proof and a dry-run E2E against local fakes.
+Twilio mirrors it: `statusCallback` on `TwilioSmsAdapter`, `verifyTwilioSignature` (HMAC-SHA1 over URL + sorted params), `twilioCallbackPrice` (`Price`/`PriceUnit` params) and `adapter.charge(sid)` for the final `price` on the Message resource. `verifyTelnyxSignature` refuses a `telnyx-timestamp` older than five minutes (`toleranceSeconds` overrides it) and returns false on malformed key or signature material. The `/adapters` entry imports nothing from `agentic-core` — failures throw the local `AdapterError` (`code: "VENDOR_FAILED"`) — so the bundle needs no `nodejs_compat` flag at all. See `e2e/worker.ts` and `e2e/e2e.ts` for a bundled proof and a dry-run E2E against local fakes.
 
 ## Behavior limits
 

@@ -6,7 +6,8 @@
  * Twilio queues with a null price and reports it on the Message
  * resource after a terminal status; its callback signature is
  * HMAC-SHA1 over URL + sorted params. Telnyx returns cost on the
- * message and signs webhooks with ed25519 over `timestamp|body`.
+ * message and signs webhooks with ed25519 over `timestamp|body`
+ * (timestamp must sit within a five-minute tolerance).
  *
  * Run: bun e2e/e2e.ts
  */
@@ -17,7 +18,7 @@ import {
   telnyxEventPrice,
   twilioCallbackPrice,
   TwilioSmsAdapter,
-  VendorError,
+  AdapterError,
   verifyTelnyxSignature,
   verifyTwilioSignature,
 } from "../src/adapters.js";
@@ -269,7 +270,7 @@ const eprice = telnyxEventPrice(webhook);
 check("telnyx webhook price", eprice.costCents === 0 && eprice.currency === "USD");
 
 // (d) Telnyx ed25519 signature verification
-const ts = "1729555200";
+const ts = Math.floor(Date.now() / 1000).toString();
 const rawBody = JSON.stringify(webhook);
 const tsig = sign(null, Buffer.from(`${ts}|${rawBody}`), telnyxPriv).toString(
   "base64",
@@ -302,7 +303,55 @@ check(
   })) === false,
 );
 
-// error paths stay VendorError
+// A replayed webhook carries an old timestamp: a valid signature over
+// a stale `telnyx-timestamp` must still fail the tolerance check.
+const staleTs = String(Math.floor(Date.now() / 1000) - 3600);
+const staleSig = sign(
+  null,
+  Buffer.from(`${staleTs}|${rawBody}`),
+  telnyxPriv,
+).toString("base64");
+check(
+  "telnyx replayed stale timestamp refused",
+  (await verifyTelnyxSignature({
+    publicKey: telnyxPubB64,
+    timestamp: staleTs,
+    signature: staleSig,
+    payload: rawBody,
+  })) === false,
+);
+check(
+  "telnyx non-numeric timestamp refused",
+  (await verifyTelnyxSignature({
+    publicKey: telnyxPubB64,
+    timestamp: "not-a-time",
+    signature: tsig,
+    payload: rawBody,
+  })) === false,
+);
+
+// Malformed key material returns false instead of throwing out of
+// crypto.subtle.importKey.
+check(
+  "telnyx non-base64 public key refused",
+  (await verifyTelnyxSignature({
+    publicKey: "not!!base64",
+    timestamp: ts,
+    signature: tsig,
+    payload: rawBody,
+  })) === false,
+);
+check(
+  "telnyx short public key refused",
+  (await verifyTelnyxSignature({
+    publicKey: Buffer.from("too short").toString("base64"),
+    timestamp: ts,
+    signature: tsig,
+    payload: rawBody,
+  })) === false,
+);
+
+// error paths stay AdapterError
 let err: unknown;
 try {
   await new TwilioSmsAdapter({
@@ -315,7 +364,7 @@ try {
 } catch (error) {
   err = error;
 }
-check("twilio 401 is VendorError", err instanceof VendorError);
+check("twilio 401 is AdapterError", err instanceof AdapterError);
 
 server.stop();
 console.log(`PASS ${passed} checks`);

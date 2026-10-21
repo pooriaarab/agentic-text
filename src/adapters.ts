@@ -1,13 +1,41 @@
-import { VendorError, type DispatchReceipt, type RouterAdapter } from "agentic-core";
 import { twilioAdvice } from "./compliance.js";
-
-export { VendorError } from "agentic-core";
 
 // Fetch-only entry point for Cloudflare Workers and other hosts with
 // no filesystem and no process.env. `import { TelnyxSmsAdapter } from
 // "agentic-text/adapters"` takes every credential as an argument;
 // nothing is read from the environment. The SDK, CLI, and MCP entry
-// points keep their env fallbacks in ./vendors.js.
+// points keep their env fallbacks in ./vendors.js. Nothing here imports
+// agentic-core, whose entry pulls node:crypto and node:module.
+
+// AdapterError mirrors the agentic-core VendorError shape
+// (`code: "VENDOR_FAILED"`, optional `status`) but is defined on this
+// path so the bundle needs no dependency and no nodejs_compat flag.
+export class AdapterError extends Error {
+  readonly code = "VENDOR_FAILED" as const;
+  readonly status?: number;
+  constructor(
+    message: string,
+    options: { status?: number; cause?: unknown } = {},
+  ) {
+    super(message, { cause: options.cause });
+    this.name = "AdapterError";
+    this.status = options.status;
+  }
+}
+
+// The receipt and adapter shapes match agentic-core's DispatchReceipt
+// and RouterAdapter, declared locally for the same reason.
+export interface DispatchReceipt {
+  adapter: string;
+  id: string;
+  chars: number;
+  at: string;
+}
+
+export interface RouterAdapter {
+  readonly name: string;
+  dispatch(text: string): Promise<DispatchReceipt>;
+}
 
 export type SmsVendor = "twilio" | "telnyx" | "plivo";
 
@@ -49,7 +77,7 @@ export interface SmsAdapterOptions {
 
 function checkText(text: string, name: string): void {
   if (typeof text !== "string" || text.length === 0) {
-    throw new VendorError(`${name} adapter refuses an empty text`);
+    throw new AdapterError(`${name} adapter refuses an empty text`);
   }
 }
 
@@ -112,13 +140,13 @@ export class TwilioSmsAdapter implements RouterAdapter {
   constructor(options: TwilioSmsOptions) {
     assertE164(options.to, "to");
     if (!options.accountSid || !options.authToken) {
-      throw new VendorError(
+      throw new AdapterError(
         "twilio needs accountSid and authToken (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on Node)",
       );
     }
     if (options.messagingServiceSid === undefined) {
       if (options.from === undefined) {
-        throw new VendorError("twilio needs a from number or messagingServiceSid");
+        throw new AdapterError("twilio needs a from number or messagingServiceSid");
       }
       assertE164(options.from, "from");
     }
@@ -157,7 +185,7 @@ export class TwilioSmsAdapter implements RouterAdapter {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new VendorError(`twilio request failed: ${String(error)}`, {
+      throw new AdapterError(`twilio request failed: ${String(error)}`, {
         cause: error,
       });
     }
@@ -167,7 +195,7 @@ export class TwilioSmsAdapter implements RouterAdapter {
       const detail =
         typeof body.message === "string" ? body.message : response.statusText;
       const advice = code !== undefined ? twilioAdvice(code) : undefined;
-      throw new VendorError(
+      throw new AdapterError(
         `twilio got status ${response.status}` +
           (code !== undefined ? ` (code ${code})` : "") +
           `: ${detail}` +
@@ -177,7 +205,7 @@ export class TwilioSmsAdapter implements RouterAdapter {
     }
     const sid = str(body.sid);
     if (sid === undefined) {
-      throw new VendorError("twilio send returned no message sid");
+      throw new AdapterError("twilio send returned no message sid");
     }
     const result = receipt(this.name, sid, text.length);
     const charge = twilioPrice(body);
@@ -202,13 +230,13 @@ export class TwilioSmsAdapter implements RouterAdapter {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new VendorError(`twilio charge failed: ${String(error)}`, {
+      throw new AdapterError(`twilio charge failed: ${String(error)}`, {
         cause: error,
       });
     }
     const body = asRecord(await readBody(response));
     if (!response.ok) {
-      throw new VendorError(`twilio got status ${response.status}`, {
+      throw new AdapterError(`twilio got status ${response.status}`, {
         status: response.status,
       });
     }
@@ -309,11 +337,11 @@ export class TelnyxSmsAdapter implements RouterAdapter {
   constructor(options: TelnyxSmsOptions) {
     assertE164(options.to, "to");
     if (options.from === undefined) {
-      throw new VendorError("telnyx needs a from number");
+      throw new AdapterError("telnyx needs a from number");
     }
     assertE164(options.from, "from");
     if (!options.apiKey) {
-      throw new VendorError("telnyx needs an apiKey (TELNYX_API_KEY on Node)");
+      throw new AdapterError("telnyx needs an apiKey (TELNYX_API_KEY on Node)");
     }
     this.to = options.to;
     this.from = options.from;
@@ -350,7 +378,7 @@ export class TelnyxSmsAdapter implements RouterAdapter {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new VendorError(`telnyx request failed: ${String(error)}`, {
+      throw new AdapterError(`telnyx request failed: ${String(error)}`, {
         cause: error,
       });
     }
@@ -364,7 +392,7 @@ export class TelnyxSmsAdapter implements RouterAdapter {
           : typeof first.title === "string"
             ? first.title
             : response.statusText;
-      throw new VendorError(
+      throw new AdapterError(
         `telnyx got status ${response.status}: ${detail}`,
         { status: response.status },
       );
@@ -372,7 +400,7 @@ export class TelnyxSmsAdapter implements RouterAdapter {
     const data = asRecord(body.data);
     const id = str(data.id);
     if (id === undefined) {
-      throw new VendorError("telnyx send returned no message id");
+      throw new AdapterError("telnyx send returned no message id");
     }
     const result = receipt(this.name, id, text.length);
     const charge = telnyxPrice(data);
@@ -396,13 +424,13 @@ export class TelnyxSmsAdapter implements RouterAdapter {
         },
       );
     } catch (error) {
-      throw new VendorError(`telnyx charge failed: ${String(error)}`, {
+      throw new AdapterError(`telnyx charge failed: ${String(error)}`, {
         cause: error,
       });
     }
     const body = asRecord(await readBody(response));
     if (!response.ok) {
-      throw new VendorError(`telnyx got status ${response.status}`, {
+      throw new AdapterError(`telnyx got status ${response.status}`, {
         status: response.status,
       });
     }
@@ -432,15 +460,26 @@ export function telnyxEventPrice(payload: unknown): MessageCharge {
 }
 
 // Telnyx signs webhooks with ed25519: the signature (base64) covers
-// `${telnyx-timestamp}|${raw body}` under the account public key.
+// `${telnyx-timestamp}|${raw body}` under the account public key. The
+// timestamp header is unix seconds and must sit within
+// `toleranceSeconds` of now (default five minutes), so a replayed
+// webhook fails even with a valid signature. A malformed public key,
+// signature, or verify failure returns false rather than throwing.
+export const TELNYX_TOLERANCE_SECONDS = 300;
+
 export async function verifyTelnyxSignature(options: {
   publicKey: string;
   timestamp: string;
   signature: string | null;
   payload: string;
+  toleranceSeconds?: number;
 }): Promise<boolean> {
   const { publicKey, timestamp, signature, payload } = options;
   if (!signature || !timestamp) return false;
+  const tolerance = options.toleranceSeconds ?? TELNYX_TOLERANCE_SECONDS;
+  const sent = Number(timestamp);
+  if (!Number.isFinite(sent)) return false;
+  if (Math.abs(Date.now() / 1000 - sent) > tolerance) return false;
   let keyBytes: Uint8Array;
   let given: Uint8Array;
   try {
@@ -449,20 +488,24 @@ export async function verifyTelnyxSignature(options: {
   } catch {
     return false;
   }
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes as Uint8Array<ArrayBuffer>,
-    { name: "Ed25519" },
-    false,
-    ["verify"],
-  );
-  const data = new TextEncoder().encode(`${timestamp}|${payload}`);
-  return crypto.subtle.verify(
-    { name: "Ed25519" },
-    key,
-    given as Uint8Array<ArrayBuffer>,
-    data,
-  );
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes as Uint8Array<ArrayBuffer>,
+      { name: "Ed25519" },
+      false,
+      ["verify"],
+    );
+    const data = new TextEncoder().encode(`${timestamp}|${payload}`);
+    return await crypto.subtle.verify(
+      { name: "Ed25519" },
+      key,
+      given as Uint8Array<ArrayBuffer>,
+      data,
+    );
+  } catch {
+    return false;
+  }
 }
 
 // Plivo. Posts JSON to the Message endpoint with basic auth.
@@ -490,11 +533,11 @@ export class PlivoSmsAdapter implements RouterAdapter {
   constructor(options: PlivoSmsOptions) {
     assertE164(options.to, "to");
     if (options.from === undefined) {
-      throw new VendorError("plivo needs a from number");
+      throw new AdapterError("plivo needs a from number");
     }
     assertE164(options.from, "from");
     if (!options.authId || !options.authToken) {
-      throw new VendorError(
+      throw new AdapterError(
         "plivo needs authId and authToken (PLIVO_AUTH_ID and PLIVO_AUTH_TOKEN on Node)",
       );
     }
@@ -529,7 +572,7 @@ export class PlivoSmsAdapter implements RouterAdapter {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new VendorError(`plivo request failed: ${String(error)}`, {
+      throw new AdapterError(`plivo request failed: ${String(error)}`, {
         cause: error,
       });
     }
@@ -537,14 +580,14 @@ export class PlivoSmsAdapter implements RouterAdapter {
     if (!response.ok) {
       const detail =
         typeof parsed.error === "string" ? parsed.error : response.statusText;
-      throw new VendorError(`plivo got status ${response.status}: ${detail}`, {
+      throw new AdapterError(`plivo got status ${response.status}: ${detail}`, {
         status: response.status,
       });
     }
     const uuids = Array.isArray(parsed.message_uuid) ? parsed.message_uuid : [];
     const id = str(uuids[0]);
     if (id === undefined) {
-      throw new VendorError("plivo send returned no message id");
+      throw new AdapterError("plivo send returned no message id");
     }
     return receipt(this.name, id, text.length);
   }
