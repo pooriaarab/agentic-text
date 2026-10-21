@@ -1,10 +1,8 @@
 {
   // Bundling proof only: `bunx wrangler deploy --dry-run -c e2e/wrangler.jsonc`.
   // The worker imports agentic-text/adapters (../src/adapters.ts).
+  // No compatibility flags: the /adapters entry needs no node builtins.
   "name": "agentic-text-e2e",
   "main": "worker.ts",
-  "compatibility_date": "2026-01-01",
-  // OpenNext workers (the CRM host) already run with nodejs_compat; it
-  // covers the transitive agentic-core imports of crypto and module.
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_date": "2026-01-01"
 }

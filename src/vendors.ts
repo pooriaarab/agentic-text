@@ -12,6 +12,7 @@ import type { SmsAdapterOptions } from "./adapters.js";
 
 export type { SmsAdapterOptions, SmsVendor } from "./adapters.js";
 export {
+  AdapterError,
   assertE164,
   centsOf,
   DryRunSmsAdapter,
