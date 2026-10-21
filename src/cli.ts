@@ -9,6 +9,7 @@ import {
   VendorError,
 } from "agentic-core";
 import {
+  AdapterError,
   assertE164,
   createSmsAdapter,
   DryRunSmsAdapter,
@@ -398,6 +399,7 @@ export async function runCli(
     if (
       error instanceof GuardError ||
       error instanceof VendorError ||
+      error instanceof AdapterError ||
       error instanceof UsageError
     ) {
       io.err(`${error.name}: ${error.message}`);
