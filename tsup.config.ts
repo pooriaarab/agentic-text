@@ -8,6 +8,7 @@ const pkg = JSON.parse(
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/adapters.ts",
     "src/cli.ts",
     "src/mcp.ts",
     "src/mcp-bin.ts",

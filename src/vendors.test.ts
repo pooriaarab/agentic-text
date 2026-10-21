@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
-import { VendorError } from "agentic-core";
+import { AdapterError } from "./adapters.js";
 import {
   createSmsAdapter,
   DryRunSmsAdapter,
@@ -85,7 +85,7 @@ describe("twilio adapter", () => {
     expect(form.get("From")).toBeNull();
   });
 
-  test("throws VendorError with code advice on failure", async () => {
+  test("throws AdapterError with code advice on failure", async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse({ code: 21610, message: "opted out" }, 400),
     ) as unknown as typeof fetch;
@@ -97,13 +97,13 @@ describe("twilio adapter", () => {
       fetchFn,
     });
     const error = await adapter.dispatch("hi").catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(VendorError);
+    expect(error).toBeInstanceOf(AdapterError);
     expect((error as Error).message).toContain("21610");
     expect((error as Error).message).toContain("opted out");
-    expect((error as VendorError).status).toBe(400);
+    expect((error as AdapterError).status).toBe(400);
   });
 
-  test("throws VendorError on network failure, never swallows", async () => {
+  test("throws AdapterError on network failure, never swallows", async () => {
     const fetchFn = vi.fn(async () => {
       throw new Error("down");
     }) as unknown as typeof fetch;
@@ -114,7 +114,7 @@ describe("twilio adapter", () => {
       authToken: "t",
       fetchFn,
     });
-    await expect(adapter.dispatch("hi")).rejects.toBeInstanceOf(VendorError);
+    await expect(adapter.dispatch("hi")).rejects.toBeInstanceOf(AdapterError);
   });
 
   test("needs credentials", () => {
@@ -140,7 +140,7 @@ describe("twilio adapter", () => {
       authToken: "t",
       fetchFn: (async () => jsonResponse({}, 201)) as unknown as typeof fetch,
     });
-    await expect(adapter.dispatch("")).rejects.toBeInstanceOf(VendorError);
+    await expect(adapter.dispatch("")).rejects.toBeInstanceOf(AdapterError);
   });
 });
 
@@ -170,7 +170,7 @@ describe("telnyx adapter", () => {
     });
   });
 
-  test("throws VendorError with the first error detail", async () => {
+  test("throws AdapterError with the first error detail", async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse({ errors: [{ code: "1000", detail: "bad from" }] }, 422),
     ) as unknown as typeof fetch;
@@ -181,9 +181,9 @@ describe("telnyx adapter", () => {
       fetchFn,
     });
     const error = await adapter.dispatch("hey").catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(VendorError);
+    expect(error).toBeInstanceOf(AdapterError);
     expect((error as Error).message).toContain("bad from");
-    expect((error as VendorError).status).toBe(422);
+    expect((error as AdapterError).status).toBe(422);
   });
 
   test("needs an api key", () => {
@@ -222,7 +222,7 @@ describe("plivo adapter", () => {
     });
   });
 
-  test("throws VendorError with the error text", async () => {
+  test("throws AdapterError with the error text", async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse({ error: "dst invalid" }, 400),
     ) as unknown as typeof fetch;
@@ -234,7 +234,7 @@ describe("plivo adapter", () => {
       fetchFn,
     });
     const error = await adapter.dispatch("yo").catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(VendorError);
+    expect(error).toBeInstanceOf(AdapterError);
     expect((error as Error).message).toContain("dst invalid");
   });
 

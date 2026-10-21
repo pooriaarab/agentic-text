@@ -37,5 +37,6 @@ for costs.
 
 - Preview each send with dry run first.
 - Send to warm numbers only.
+- Enforce prospect compliance columns with --prospect-file.
 - Report guard denials and adapter errors as failures.
 - Read the cost report at the end.

@@ -7,6 +7,7 @@ Keywords: sms, twilio, 10dlc, agentic-suite, claude-code, codex, cli, mcp.
 - SDK: import { dispatchText, createSmsAdapter } from "agentic-text".
 - CLI: agentic-text send --to "..." --from "..." --text "...".
 - MCP: run agentic-text mcp, then call send_text.
+- Prospects: send --prospect-file prospects.csv enforces basis, evidence_url, no_solicitation_flag, do_not_contact.
 
 ## Docs
 
