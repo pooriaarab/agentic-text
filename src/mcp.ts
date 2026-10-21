@@ -22,6 +22,7 @@ import {
   WarmBase,
 } from "./warmbase.js";
 import { a2pChecklist, QUIET_DEFAULT } from "./compliance.js";
+import { checkProspectCompliance } from "./prospects.js";
 import { DEFAULT_BRAND } from "./index.js";
 
 export interface McpDeps {
@@ -95,6 +96,17 @@ export function createMcpServer(deps: McpDeps = {}): McpServer {
           .boolean()
           .optional()
           .describe("Preview only. Default is true."),
+        prospect: z
+          .object({
+            phone: z.string(),
+            basis: z.string(),
+            evidence_url: z.string(),
+            no_solicitation_flag: z.boolean(),
+            do_not_contact: z.boolean(),
+          })
+          .partial()
+          .optional()
+          .describe("Growth-prospect-list compliance columns."),
       },
       annotations: {
         readOnlyHint: false,
@@ -103,9 +115,26 @@ export function createMcpServer(deps: McpDeps = {}): McpServer {
         openWorldHint: true,
       },
     },
-    async ({ to, from, text, vendor, dryRun }) => {
+    async ({ to, from, text, vendor, dryRun, prospect }) => {
       try {
         checkPhone(to, "to");
+        if (prospect !== undefined) {
+          if (
+            prospect.phone !== undefined &&
+            prospect.phone !== to
+          ) {
+            return errorResult(
+              new Error("prospect phone does not match destination"),
+            );
+          }
+          checkProspectCompliance({
+            phone: to,
+            basis: prospect.basis ?? "",
+            evidence_url: prospect.evidence_url ?? "",
+            no_solicitation_flag: prospect.no_solicitation_flag ?? false,
+            do_not_contact: prospect.do_not_contact ?? false,
+          });
+        }
         const base = WarmBase.load(warmbasePath);
         ensureWarm(to, base);
         const live = dryRun === false;

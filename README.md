@@ -50,7 +50,8 @@ CLI vendor selection follows Twilio, Telnyx, then Plivo environment keys; `--ven
 CLI commands: `send`, `warmbase add|list`, `stops add|list`, `a2p`, `costs`, and `mcp`; flags include `--help` and `--version`.
 Use `warmbase add --to <real-opted-in-number> --source <opt-in-source>` before sending.
 `send` requires `--to`, `--from`, and `--text` or `--file`. Preview first; add `--live` for a vendor call.
-Optional send flags include `--vendor`, `--brand`, `--warmbase`, `--cap`, `--quiet-start`, `--quiet-end`, and `--dry-run`.
+Optional send flags include `--vendor`, `--brand`, `--warmbase`, `--cap`, `--quiet-start`, `--quiet-end`, `--dry-run`, and `--prospect-file`.
+`--prospect-file` points at a growth-prospect-list CSV with `phone`, `basis`, `evidence_url`, `no_solicitation_flag`, and `do_not_contact` columns; the row for `--to` must exist and pass all four checks before the send.
 `warmbase add` accepts `--name`; `stops add` accepts `--keyword`.
 The default contact file is `~/.agentic-text/warmbase.json`; override it with `AGENTIC_TEXT_WARMBASE` or CLI `--warmbase`.
 Record each received STOP with `stops add --to <number>`. The number leaves the contact list and remains blocked.
@@ -58,7 +59,35 @@ Record each received STOP with `stops add --to <number>`. The number leaves the 
 Start the Model Context Protocol (MCP) server with `npx agentic-text mcp` or `npx agentic-text-mcp`.
 Its seven tools are `send_text`, `warmbase_add`, `warmbase_list`, `record_stop`, `list_stops`, `a2p_checklist`, and `get_cost_report`.
 `send_text` previews by default; `dryRun: false` requests a live send after contact and guard checks.
+`send_text` accepts an optional `prospect` object with the growth-prospect-list compliance columns; flagged or unevidenced prospects refuse with a tool error.
 The self-hosted Worker source exposes `GET /health` and `POST /preview`; it never sends SMS or reads the contact file.
+
+### Edge runtimes (Cloudflare Workers)
+
+`agentic-text/adapters` is a fetch-only entry point for hosts with no filesystem and no `process.env`. Every credential arrives as an argument; nothing is read from the environment. It carries the Twilio, Telnyx, and Plivo send adapters plus the callback helpers.
+
+```js
+import { TelnyxSmsAdapter, verifyTelnyxSignature, telnyxEventPrice } from 'agentic-text/adapters';
+
+const sms = new TelnyxSmsAdapter({
+  to: '+15551234567', from: '+15557654321',   // E.164 only
+  apiKey: env.TELNYX_API_KEY,                 // key passed in, never read from env
+  messagingProfileId: env.TELNYX_MESSAGING_PROFILE_ID,
+  webhookUrl: 'https://crm.example/hooks/telnyx',
+});
+const receipt = await sms.dispatch('hi');     // receipt.id is the provider message id
+
+// In the webhook route:
+const ok = await verifyTelnyxSignature({
+  publicKey: env.TELNYX_PUBLIC_KEY,
+  timestamp: req.headers.get('telnyx-timestamp'),
+  signature: req.headers.get('telnyx-signature-ed25519'),
+  payload: rawBody,
+});
+const price = telnyxEventPrice(JSON.parse(rawBody));   // cost.amount -> integer cents
+```
+
+Twilio mirrors it: `statusCallback` on `TwilioSmsAdapter`, `verifyTwilioSignature` (HMAC-SHA1 over URL + sorted params), `twilioCallbackPrice` (`Price`/`PriceUnit` params) and `adapter.charge(sid)` for the final `price` on the Message resource. `verifyTelnyxSignature` refuses a `telnyx-timestamp` older than five minutes (`toleranceSeconds` overrides it) and returns false on malformed key or signature material. The `/adapters` entry imports nothing from `agentic-core` — failures throw the local `AdapterError` (`code: "VENDOR_FAILED"`) — so the bundle needs no `nodejs_compat` flag at all. See `e2e/worker.ts` and `e2e/e2e.ts` for a bundled proof and a dry-run E2E against local fakes.
 
 ## Behavior limits
 
