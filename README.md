@@ -62,6 +62,33 @@ Its seven tools are `send_text`, `warmbase_add`, `warmbase_list`, `record_stop`,
 `send_text` accepts an optional `prospect` object with the growth-prospect-list compliance columns; flagged or unevidenced prospects refuse with a tool error.
 The self-hosted Worker source exposes `GET /health` and `POST /preview`; it never sends SMS or reads the contact file.
 
+### Edge runtimes (Cloudflare Workers)
+
+`agentic-text/adapters` is a fetch-only entry point for hosts with no filesystem and no `process.env`. Every credential arrives as an argument; nothing is read from the environment. It carries the Twilio, Telnyx, and Plivo send adapters plus the callback helpers.
+
+```js
+import { TelnyxSmsAdapter, verifyTelnyxSignature, telnyxEventPrice } from 'agentic-text/adapters';
+
+const sms = new TelnyxSmsAdapter({
+  to: '+15551234567', from: '+15557654321',   // E.164 only
+  apiKey: env.TELNYX_API_KEY,                 // key passed in, never read from env
+  messagingProfileId: env.TELNYX_MESSAGING_PROFILE_ID,
+  webhookUrl: 'https://crm.example/hooks/telnyx',
+});
+const receipt = await sms.dispatch('hi');     // receipt.id is the provider message id
+
+// In the webhook route:
+const ok = await verifyTelnyxSignature({
+  publicKey: env.TELNYX_PUBLIC_KEY,
+  timestamp: req.headers.get('telnyx-timestamp'),
+  signature: req.headers.get('telnyx-signature-ed25519'),
+  payload: rawBody,
+});
+const price = telnyxEventPrice(JSON.parse(rawBody));   // cost.amount -> integer cents
+```
+
+Twilio mirrors it: `statusCallback` on `TwilioSmsAdapter`, `verifyTwilioSignature` (HMAC-SHA1 over URL + sorted params), `twilioCallbackPrice` (`Price`/`PriceUnit` params) and `adapter.charge(sid)` for the final `price` on the Message resource. The transitive `agentic-core` import needs the `nodejs_compat` compatibility flag (OpenNext workers already set it). See `e2e/worker.ts` and `e2e/e2e.ts` for a bundled proof and a dry-run E2E against local fakes.
+
 ## Behavior limits
 
 CLI and MCP quiet hours default to 01:00–13:00 UTC. These checks can also block previews.
